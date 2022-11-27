@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "portfolio-analysis"
+  site-url: "https://rsp34.github.io/portfolio-analysis"
+  description: "A repository to trace an investment portfolio back in time including fees and rebalancing."
+  repo-branch: main
+  repo-url: "https://github.com/rsp34/portfolio-analysis"
