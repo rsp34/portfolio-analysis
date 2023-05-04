@@ -49,12 +49,18 @@ class Holding:
         # Where we've specified a timeseries where values predate the oldest time in our ticker,
         # we give a warning and then assume that the accumulated lump sum was invested at the earliest
         # possible date.
+        
+        #TODO: This doesn't work if there are no deposits after the fund opened
         if self.history.index[0] > deposits.index[0]:
             initial_deposit = deposits[deposits.index <= self.history.index[0]].sum()
-            deposits = deposits[deposits.index <= self.history.index[0]]
-            deposits.iat[0,0] = initial_deposit
-            warnings.warn(f"""Deposits predate initial date of {self.history.index[0]} where prices are available for {fund}.
-                              Accumulated deposit of {initial_deposit} deposited on this date.""")
+            deposits = deposits[deposits.index >= self.history.index[0]]
+            if not deposits.empty and deposits.index[0].date() == self.history.index[0]:
+                deposits.iat[0] = initial_deposit
+            else:
+                new_row = pd.Series([initial_deposit], index=[self.history.index[0]])
+                deposits = pd.concat([new_row,deposits])
+                warn_msg = f"""Deposits predate initial date of {self.history.index[0]} where prices are available for {fund}. Accumulated deposit of {initial_deposit} deposited on this date.""" 
+                warnings.warn(warn_msg)
         else:
              self.history = self.history.iloc[self.history.index >= deposits.index[0]]
             
@@ -75,7 +81,7 @@ class Holding:
         
         return self
 
-# %% ../nbs/00_portfolio.ipynb 36
+# %% ../nbs/00_portfolio.ipynb 38
 class FixedAllocationPortfolio:
     "A collection of holdings of funds with data available on yfinance with a fixed allocation of each deposit made."
     def __init__(self,
@@ -99,7 +105,18 @@ class FixedAllocationPortfolio:
         # Create a holding for each fund
         self.holdings = [Holding(fund[i],ticker[i],product_cost[i],deposits*allocation[i]) for i in range(len(fund))]
         
-        
+        # Let's ensure all holdings have the same number of dates
+        n_rows = [holding.history.shape[0] for holding in self.holdings]
+        if len(set(n_rows)) != 1:
+            max_rows = max(n_rows)
+            max_rows_history = self.holdings[n_rows.index(max_rows)].history.iloc[:, 0:0]
+
+            for index, holding in enumerate(self.holdings):
+                if n_rows[index] < max_rows:
+                    holding.history = max_rows_history.join(holding.history, how='left')
+                    holding.history = holding.history.interpolate(method='nearest', limit_direction='both')
+                    holding.compute_value()
+            
     def rebalance(self,rebalance_dates):
         
         # We rebalance on the dates specified. If a rebalancing date is prior a funds 
@@ -134,7 +151,6 @@ class FixedAllocationPortfolio:
             deposit_idx = holdings[i].history.columns.get_loc("deposits")
             
             for i in range(len(holdings)):
-                # Some special, consideration needs to 
                 holdings[i].history.iloc[row,deposit_idx] = holdings[i].history.iloc[row,deposit_idx] \
                                                                    + (target_allocation[i] - holdings[i].history.iloc[row,cum_value_idx])
                 holdings[i].compute_value()
@@ -142,7 +158,7 @@ class FixedAllocationPortfolio:
             self.holdings = holdings
             return self
 
-# %% ../nbs/00_portfolio.ipynb 42
+# %% ../nbs/00_portfolio.ipynb 44
 class Returns:
     def __init__(self,
                  name:    str ,   # Description of the returns - typically used as title
@@ -153,12 +169,12 @@ class Returns:
             for i in range(1,len(holdings)):
                 self.history += holdings[i].history[["deposits","cum_value","fees"]]
 
-# %% ../nbs/00_portfolio.ipynb 44
+# %% ../nbs/00_portfolio.ipynb 46
 @patch
 def to_returns(self:Holding):
     return Returns(self.fund,[self])
 
-# %% ../nbs/00_portfolio.ipynb 49
+# %% ../nbs/00_portfolio.ipynb 51
 @patch
 def to_returns(self:FixedAllocationPortfolio):
     
@@ -168,7 +184,7 @@ def to_returns(self:FixedAllocationPortfolio):
 
     return Returns(name,self.holdings)
 
-# %% ../nbs/00_portfolio.ipynb 54
+# %% ../nbs/00_portfolio.ipynb 56
 @patch
 def profit(self:Returns):
     
@@ -177,5 +193,5 @@ def profit(self:Returns):
     
     return self.history['cum_value'][-1]-sum(self.history['deposits'])-sum(self.history['fees'])
 
-# %% ../nbs/00_portfolio.ipynb 60
+# %% ../nbs/00_portfolio.ipynb 62
 create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
