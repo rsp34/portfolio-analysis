@@ -26,11 +26,10 @@ def create_monthly_deposits(start:str,        # Date of the first montly deposit
     deposits = [deposit]*len(dti)
     return pd.Series([deposit]*len(dti), index=dti, name='deposits')
 
-# %% ../nbs/00_portfolio.ipynb 18
-import matplotlib.pyplot as plt
+# %% ../nbs/00_portfolio.ipynb 27
 import warnings
 
-# %% ../nbs/00_portfolio.ipynb 19
+# %% ../nbs/00_portfolio.ipynb 28
 class Holding:
     "A holding for fund with data available on yfinance"
     def __init__(self,
@@ -41,31 +40,31 @@ class Holding:
                  
         
         self.fund = fund
-        self.history = yf.Ticker(ticker).history(period='max', # valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
-                                                 interval='1d', # valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
-                                                 actions=False)
         self.product_cost = product_cost
         
         # Where we've specified a timeseries where values predate the oldest time in our ticker,
-        # we give a warning and then assume that the accumulated lump sum was invested at the earliest
-        # possible date.
+        # we give a warning and then fill the deposits columns with nans and back-fill all other columns
+        
+        price_history = yf.Ticker(ticker).history(period='max', # valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
+                                                  interval='1d', # valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+                                                  actions=False)
+        
         
         #TODO: This doesn't work if there are no deposits after the fund opened
-        if self.history.index[0] > deposits.index[0]:
-            initial_deposit = deposits[deposits.index <= self.history.index[0]].sum()
-            deposits = deposits[deposits.index >= self.history.index[0]]
-            if not deposits.empty and deposits.index[0].date() == self.history.index[0]:
-                deposits.iat[0] = initial_deposit
-            else:
-                new_row = pd.Series([initial_deposit], index=[self.history.index[0]])
-                deposits = pd.concat([new_row,deposits])
-                warn_msg = f"""Deposits predate initial date of {self.history.index[0]} where prices are available for {fund}. Accumulated deposit of {initial_deposit} deposited on this date.""" 
+        if deposits.index[0] < price_history.index[0]:
+                warn_msg = f"""Deposits predate initial date of {price_history.index[0]} where prices are available for {fund}. First pricing data is back-filled.""" 
                 warnings.warn(warn_msg)
-        else:
-             self.history = self.history.iloc[self.history.index >= deposits.index[0]]
-            
-        self.history['deposits']  = deposits
-        self.history['deposits']  = self.history['deposits'].fillna(0)
+        
+        # Trim any fund data that predates deposits
+        price_history = price_history.iloc[price_history.index >= deposits.index[0]]
+        
+        # Join and clean
+        self.history = pd.merge(deposits.to_frame(),price_history,left_index=True,right_index=True,how='outer')
+        dti = pd.date_range(start=self.history.index[0],end=datetime.now())
+        self.history = self.history.reindex(dti)
+        self.history['deposits'] = self.history['deposits'].fillna(0)
+        self.history = self.history.fillna(method='bfill')
+        self.history = self.history.fillna(method='ffill')
         
         self = self.compute_value()
         
@@ -73,7 +72,6 @@ class Holding:
         
     def compute_value(self):
         
-        self.history['cum_deposits'] = self.history['deposits'].cumsum()
         self.history['units']        = self.history['deposits']/self.history['Close']
         self.history['cum_units']    = self.history['units'].cumsum()
         self.history['cum_value']    = self.history['cum_units']*self.history['Close']
@@ -81,7 +79,7 @@ class Holding:
         
         return self
 
-# %% ../nbs/00_portfolio.ipynb 38
+# %% ../nbs/00_portfolio.ipynb 55
 class FixedAllocationPortfolio:
     "A collection of holdings of funds with data available on yfinance with a fixed allocation of each deposit made."
     def __init__(self,
@@ -104,30 +102,23 @@ class FixedAllocationPortfolio:
         
         # Create a holding for each fund
         self.holdings = [Holding(fund[i],ticker[i],product_cost[i],deposits*allocation[i]) for i in range(len(fund))]
-        
-        # Let's ensure all holdings have the same number of dates
-        n_rows = [holding.history.shape[0] for holding in self.holdings]
-        if len(set(n_rows)) != 1:
-            max_rows = max(n_rows)
-            max_rows_history = self.holdings[n_rows.index(max_rows)].history.iloc[:, 0:0]
-
-            for index, holding in enumerate(self.holdings):
-                if n_rows[index] < max_rows:
-                    holding.history = max_rows_history.join(holding.history, how='left')
-                    holding.history = holding.history.interpolate(method='nearest', limit_direction='both')
-                    holding.compute_value()
-            
+               
     def rebalance(self,rebalance_dates):
         
         # We rebalance on the dates specified. If a rebalancing date is prior a funds 
-        # inception date then the fund is ignore in the rebalancing.
+        # inception date then the fund's deposit is used in the rebalancing.
         
         # It is assumed that fees are paid for with an external account and that the fees
         # are accrued daily.
         
         holdings = self.holdings
         
+        # The holdings are identical so we can use any one
         matching_rows = holdings[0].history.index.get_indexer(rebalance_dates,method='nearest')
+        
+        # Get column references
+        cum_value_idx = holdings[0].history.columns.get_loc("cum_value")
+        deposit_idx = holdings[0].history.columns.get_loc("deposits")
         
         for row in matching_rows:
             
@@ -145,20 +136,15 @@ class FixedAllocationPortfolio:
             total_value = sum(current_allocation)
             target_allocation = [fraction*total_value for fraction in self.allocation]
             
-            # Update units, cum_units and cum_value in light of the new breakdown
-            # These are really properties of the holding...
-            cum_value_idx = holdings[i].history.columns.get_loc("cum_value")
-            deposit_idx = holdings[i].history.columns.get_loc("deposits")
-            
             for i in range(len(holdings)):
                 holdings[i].history.iloc[row,deposit_idx] = holdings[i].history.iloc[row,deposit_idx] \
                                                                    + (target_allocation[i] - holdings[i].history.iloc[row,cum_value_idx])
                 holdings[i].compute_value()
             
-            self.holdings = holdings
-            return self
+        self.holdings = holdings
+        return self
 
-# %% ../nbs/00_portfolio.ipynb 44
+# %% ../nbs/00_portfolio.ipynb 60
 class Returns:
     def __init__(self,
                  name:    str ,   # Description of the returns - typically used as title
@@ -169,12 +155,12 @@ class Returns:
             for i in range(1,len(holdings)):
                 self.history += holdings[i].history[["deposits","cum_value","fees"]]
 
-# %% ../nbs/00_portfolio.ipynb 46
+# %% ../nbs/00_portfolio.ipynb 62
 @patch
 def to_returns(self:Holding):
     return Returns(self.fund,[self])
 
-# %% ../nbs/00_portfolio.ipynb 51
+# %% ../nbs/00_portfolio.ipynb 67
 @patch
 def to_returns(self:FixedAllocationPortfolio):
     
@@ -184,7 +170,7 @@ def to_returns(self:FixedAllocationPortfolio):
 
     return Returns(name,self.holdings)
 
-# %% ../nbs/00_portfolio.ipynb 56
+# %% ../nbs/00_portfolio.ipynb 72
 @patch
 def profit(self:Returns):
     
@@ -193,5 +179,5 @@ def profit(self:Returns):
     
     return self.history['cum_value'][-1]-sum(self.history['deposits'])-sum(self.history['fees'])
 
-# %% ../nbs/00_portfolio.ipynb 62
+# %% ../nbs/00_portfolio.ipynb 78
 create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
