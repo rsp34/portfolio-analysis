@@ -5,6 +5,7 @@ __all__ = ['to_datetime', 'create_monthly_rebalance_dates', 'create_monthly_depo
            'Returns']
 
 # %% ../nbs/00_portfolio.ipynb 3
+import pytz
 from fastcore.utils import *
 
 # %% ../nbs/00_portfolio.ipynb 6
@@ -13,20 +14,21 @@ import yfinance as yf
 # %% ../nbs/00_portfolio.ipynb 14
 import pandas as pd
 from datetime import datetime
+from tzlocal import get_localzone
 
 # %% ../nbs/00_portfolio.ipynb 15
-to_datetime = lambda date_string: datetime.strptime(date_string,"%d/%m/%Y")
+to_datetime = lambda date_string: pytz.timezone(str(get_localzone())).localize(datetime.strptime(date_string,"%d/%m/%Y"))
 def create_monthly_deposits(start:str,        # Date of the first montly deposit.
                             end:str,          # Date of the last monthly deposit
                             deposit:float):    # Value of monthly deposit
-    dti = pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
+    dti = pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM',tz=str(get_localzone()))
     deposits = [deposit]*len(dti)
     return pd.Series([deposit]*len(dti), index=dti, name='deposits')
 
-# %% ../nbs/00_portfolio.ipynb 28
+# %% ../nbs/00_portfolio.ipynb 29
 import warnings
 
-# %% ../nbs/00_portfolio.ipynb 29
+# %% ../nbs/00_portfolio.ipynb 30
 class Holding:
     "A holding for fund with data available on yfinance"
     def __init__(self,
@@ -45,6 +47,8 @@ class Holding:
         price_history = yf.Ticker(ticker).history(period='max', # valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
                                                   interval='1d', # valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
                                                   actions=False)
+        price_history = price_history.tz_convert(str(get_localzone()))
+        
         if price_history.shape[0] == 0:
             raise Exception(f"No fund data available for {ticker}") 
         
@@ -60,8 +64,8 @@ class Holding:
         price_history = price_history.iloc[price_history.index >= deposits.index[0]]
         
         # Join and clean
-        self.history = pd.merge(deposits.to_frame(),price_history,left_index=True,right_index=True,how='outer')
-        dti = pd.date_range(start=self.history.index[0],end=datetime.now())
+        self.history = pd.merge(deposits,price_history,left_index=True,right_index=True,how='outer')
+        dti = pd.date_range(start=self.history.index[0],end=pytz.timezone(str(get_localzone())).localize(datetime.now()))
         self.history = self.history.reindex(dti)
         self.history['deposits'] = self.history['deposits'].fillna(0)
         self.history = self.history.fillna(method='bfill')
@@ -78,7 +82,7 @@ class Holding:
         
         return self
 
-# %% ../nbs/00_portfolio.ipynb 56
+# %% ../nbs/00_portfolio.ipynb 54
 class FixedAllocationPortfolio:
     "A collection of holdings of funds with data available on yfinance with a fixed allocation of each deposit made."
     def __init__(self,
@@ -137,7 +141,7 @@ class FixedAllocationPortfolio:
         self.holdings = holdings
         return self
 
-# %% ../nbs/00_portfolio.ipynb 61
+# %% ../nbs/00_portfolio.ipynb 59
 class Returns:
     def __init__(self,
                  name:    str ,   # Description of the returns - typically used as title
@@ -148,12 +152,12 @@ class Returns:
             for i in range(1,len(holdings)):
                 self.history += holdings[i].history[["deposits","cum_value","fees"]]
 
-# %% ../nbs/00_portfolio.ipynb 63
+# %% ../nbs/00_portfolio.ipynb 61
 @patch
 def to_returns(self:Holding):
     return Returns(self.fund,[self])
 
-# %% ../nbs/00_portfolio.ipynb 68
+# %% ../nbs/00_portfolio.ipynb 66
 @patch
 def to_returns(self:FixedAllocationPortfolio):
     
@@ -163,7 +167,7 @@ def to_returns(self:FixedAllocationPortfolio):
 
     return Returns(name,self.holdings)
 
-# %% ../nbs/00_portfolio.ipynb 73
+# %% ../nbs/00_portfolio.ipynb 71
 @patch
 def profit(self:Returns):
     
@@ -172,5 +176,5 @@ def profit(self:Returns):
     
     return self.history['cum_value'][-1]-sum(self.history['deposits'])-sum(self.history['fees'])
 
-# %% ../nbs/00_portfolio.ipynb 79
-create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
+# %% ../nbs/00_portfolio.ipynb 77
+create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM',tz = str(get_localzone()))
