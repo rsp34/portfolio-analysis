@@ -14,10 +14,218 @@ pip install portfolio_analysis
 
 ## How to use
 
-Fill me in please! Don’t forget code examples:
+Let’s explore a few different potential portfolios, recommended by
+various platform, to compared investment ideas assuming we started
+investing 5 years ago…
 
 ``` python
-1+1
+monthly_deposits = create_monthly_deposits("01/01/2018",date.today().strftime("%d/%m/%Y"),20000/12)
 ```
 
-    2
+and that we rebalance monthly for multi-asset portfolios.
+
+``` python
+rebalance_dates = create_monthly_rebalance_dates("01/01/2018",date.today().strftime("%d/%m/%Y"))
+```
+
+Let’s also see how an initial deposit of £250,000 would have faired.
+Then compare these to the performances of
+[MoneyFarm](https://www.moneyfarm.com/uk/portfolios/) and
+[Nutmeg](https://www.nutmeg.com/fully-managed-portfolios).
+
+``` python
+initial_deposit  = create_monthly_deposits("01/01/2018","01/02/2018",250000)
+```
+
+### Vanguard Life Strategy 100%
+
+Sources:
+https://uk.finance.yahoo.com/quote/0P0000TKZO.L?p=0P0000TKZO.L&.tsrc=fin-srch,
+https://www.vanguardinvestor.co.uk/what-we-offer/all-products
+
+``` python
+vanguard_life_strategy = Holding('Vanguard LifeStrategy 100%','0P0000TKZO.L',0.22,monthly_deposits)
+vanguard_life_strategy.to_returns().profit()
+```
+
+    23933.89491594279
+
+``` python
+vanguard_life_strategy = Holding('Vanguard LifeStrategy 100%','0P0000TKZO.L',0.22+0.15,initial_deposit)
+vanguard_life_strategy.to_returns().profit()
+```
+
+    107372.11443456807
+
+### Vanguard Global All Cap
+
+Sources:
+https://finance.yahoo.com/quote/0P00018XAR.L?p=0P00018XAR.L&.tsrc=fin-srch,
+https://www.vanguardinvestor.co.uk/investments/vanguard-ftse-global-all-cap-index-fund-gbp-acc/overview
+
+``` python
+vanguard_life_strategy = Holding('Vanguard FTSE Global All Cap Index Fund GBP Acc','0P00018XAR.L',0.23,monthly_deposits)
+vanguard_life_strategy.to_returns().profit()
+```
+
+    25024.61858661359
+
+``` python
+vanguard_life_strategy = Holding('Vanguard FTSE Global All Cap Index Fund GBP Acc','0P00018XAR.L',0.23+0.15,initial_deposit)
+vanguard_life_strategy.to_returns().profit()
+```
+
+    120444.68172907135
+
+### AJ Bell Ready-Made Portfolios
+
+Sources:
+
+``` python
+aj_bell_adventurous = FixedAllocationPortfolio(["abrdn Global Smaller Companies",
+                                                "Artemis Strategic Bond Acc",# Different date?
+                                                "Fidelity Global Special Sits Acc",
+                                                "Janus Henderson Absolute Return Acc",
+                                                "Jupiter UK Special Situations Acc",
+                                                "Ninety One UK Alpha Acc",
+                                                "Trojan Global Income Acc"],# Different date?
+                                               ["0P0000V4D1.L",
+                                                "0P00012OVS.L",
+                                                "0P0000WUT6.L",
+                                                "0P0001HG38.L",
+                                                "0P0000K9EK.L",
+                                                "0P00012K82.L",
+                                                "0P00012OVS.L"],
+                                               [0.94,0.59,0.92,1.07,0.76,0.74,0.89],
+                                               [0.1,0.08,0.28,0.03,0.08,0.15,0.28],
+                                               monthly_deposits)
+aj_bell_adventurous_rebalanced = aj_bell_adventurous.rebalance(rebalance_dates)
+aj_bell_adventurous_rebalanced.to_returns().profit()
+```
+
+    5037.1349889412595
+
+``` python
+aj_bell_adventurous = FixedAllocationPortfolio(["abrdn Global Smaller Companies",
+                                                "Artemis Strategic Bond Acc",# Different date?
+                                                "Fidelity Global Special Sits Acc",
+                                                "Janus Henderson Absolute Return Acc",
+                                                "Jupiter UK Special Situations Acc",
+                                                "Ninety One UK Alpha Acc",
+                                                "Trojan Global Income Acc"],# Different date?
+                                               ["0P0000V4D1.L",
+                                                "0P00012OVS.L",
+                                                "0P0000WUT6.L",
+                                                "0P0001HG38.L",
+                                                "0P0000K9EK.L",
+                                                "0P00012K82.L",
+                                                "0P00012OVS.L"],
+                                               [0.94,0.59,0.92,1.07,0.76,0.74,0.89],
+                                               [0.1,0.08,0.28,0.03,0.08,0.15,0.28],
+                                               initial_deposit)
+aj_bell_adventurous_rebalanced = aj_bell_adventurous.rebalance(rebalance_dates)
+aj_bell_adventurous_rebalanced.to_returns().profit()
+```
+
+    34544.59194952766
+
+### Interactive-Investor Portfolios
+
+``` python
+active_growth = FixedAllocationPortfolio(["Jupiter UK Special Situations Acc",
+                                    "Ninety One UK Alpha Acc",
+                                    "Scottish Mortgage Ord",
+                                    "Fidelity Global Dividend W Acc",
+                                    "Fundsmith Equity",
+                                    "F&C Investment Trust",
+                                    "Vanguard U.S. Equity",
+                                    "JPMorgan Emerging Markets",
+                                    "Capital Gearing Ord",
+                                    "LF Ruffer Diversified",
+                                    "abrdn Private Equity Opportunities"],
+                                               ["0P0000K9EK.L",
+                                                "0P00012K82.L",
+                                                "SMT.L",
+                                                "0P0000WUT3.L",
+                                                "0P0000RU81.L",
+                                                "FCIT.L",
+                                                "0P0000KSPA.L",
+                                                "JMG.L",
+                                                "CGT.L",
+                                                "0P0001MKQK.L",
+                                                "APEO.L"],
+                                               [0.76,0.74,0.84,0.91,0.94,0.83,0.1,0.86,0.66,1.12,6.25],
+                                               [0.1 , 0.1,0.12, 0.1,0.13, 0.1,0.1,0.05,0.10,0.05,0.05],
+                                               monthly_deposits)
+
+active_growth_rebalanced = active_growth.rebalance(rebalance_dates)
+active_growth_rebalanced.to_returns().profit()
+```
+
+    c:\users\ryan\portfolio-analysis\portfolio_analysis\portfolio.py:57: UserWarning: Deposits predate initial date of 2021-09-01 00:00:00 where prices are available for LF Ruffer Diversified. First pricing data is back-filled.
+      warnings.warn(warn_msg)
+
+    12905.323944822485
+
+``` python
+active_growth = FixedAllocationPortfolio(["Jupiter UK Special Situations Acc",
+                                    "Ninety One UK Alpha Acc",
+                                    "Scottish Mortgage Ord",
+                                    "Fidelity Global Dividend W Acc",
+                                    "Fundsmith Equity",
+                                    "F&C Investment Trust",
+                                    "Vanguard U.S. Equity",
+                                    "JPMorgan Emerging Markets",
+                                    "Capital Gearing Ord",
+                                    "LF Ruffer Diversified",
+                                    "abrdn Private Equity Opportunities"],
+                                               ["0P0000K9EK.L",
+                                                "0P00012K82.L",
+                                                "SMT.L",
+                                                "0P0000WUT3.L",
+                                                "0P0000RU81.L",
+                                                "FCIT.L",
+                                                "0P0000KSPA.L",
+                                                "JMG.L",
+                                                "CGT.L",
+                                                "0P0001MKQK.L",
+                                                "APEO.L"],
+                                               [0.76,0.74,0.84,0.91,0.94,0.83,0.1,0.86,0.66,1.12,6.25],
+                                               [0.1 , 0.1,0.12, 0.1,0.13, 0.1,0.1,0.05,0.10,0.05,0.05],
+                                               initial_deposit)
+
+active_growth_rebalanced = active_growth.rebalance(rebalance_dates)
+active_growth_rebalanced.to_returns().profit()
+```
+
+    c:\users\ryan\portfolio-analysis\portfolio_analysis\portfolio.py:57: UserWarning: Deposits predate initial date of 2021-09-01 00:00:00 where prices are available for LF Ruffer Diversified. First pricing data is back-filled.
+      warnings.warn(warn_msg)
+
+    91056.05058932351
+
+### Invest Engine Portfolios
+
+### Fidelity Portfolio Recommendations
+
+# Development Ideas
+
+Ultimately, the project can broadly answer the questions I was
+originally interested in, namely, once fees and rebalancing are included
+in porfolio modelling how do different fund recommendations compare. To
+develop this project further I would: \* Look at refactoring the
+notebooks to improve the documentation site that has been created. I
+wanted to test out using `nbdev` on a small software project and,
+unfortunately, I don’t think the resulting documentation site is that
+clear or readable. I think this is how I have structured the notebooks
+rather than the fault of the `nbdev` approach. \* Add more tests to
+increase confidence that the modelling software is working as hoped. \*
+Extend analytics and visualisations for the
+[`Returns`](https://rsp34.github.io/portfolio-analysis/portfolio.html#returns)
+class e.g. plots, tables or alternate metrics like the integrated fund
+value. \* Add a functionality for variable allocations, variable fund
+portfolio e.g. a `Portfolio` class that could do things like reduce
+exposure to stocks as a portfolio over time or try investing only at
+certain times of the year. \* Architect general method to integrate
+holding data other than `yfinance` as different users may want to pull
+data from different sources. I am broadly happy with yfinance as it’s
+free and does what I need!
