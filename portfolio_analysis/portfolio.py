@@ -7,17 +7,14 @@ __all__ = ['to_datetime', 'create_monthly_rebalance_dates', 'create_monthly_depo
 # %% ../nbs/00_portfolio.ipynb 3
 from fastcore.utils import *
 
-# %% ../nbs/00_portfolio.ipynb 4
-import pendulum
-
-# %% ../nbs/00_portfolio.ipynb 7
+# %% ../nbs/00_portfolio.ipynb 6
 import yfinance as yf
 
-# %% ../nbs/00_portfolio.ipynb 15
+# %% ../nbs/00_portfolio.ipynb 14
 import pandas as pd
 from datetime import datetime
 
-# %% ../nbs/00_portfolio.ipynb 16
+# %% ../nbs/00_portfolio.ipynb 15
 to_datetime = lambda date_string: datetime.strptime(date_string,"%d/%m/%Y")
 def create_monthly_deposits(start:str,        # Date of the first montly deposit.
                             end:str,          # Date of the last monthly deposit
@@ -26,10 +23,10 @@ def create_monthly_deposits(start:str,        # Date of the first montly deposit
     deposits = [deposit]*len(dti)
     return pd.Series([deposit]*len(dti), index=dti, name='deposits')
 
-# %% ../nbs/00_portfolio.ipynb 29
+# %% ../nbs/00_portfolio.ipynb 28
 import warnings
 
-# %% ../nbs/00_portfolio.ipynb 30
+# %% ../nbs/00_portfolio.ipynb 29
 class Holding:
     "A holding for fund with data available on yfinance"
     def __init__(self,
@@ -81,7 +78,7 @@ class Holding:
         
         return self
 
-# %% ../nbs/00_portfolio.ipynb 57
+# %% ../nbs/00_portfolio.ipynb 56
 class FixedAllocationPortfolio:
     "A collection of holdings of funds with data available on yfinance with a fixed allocation of each deposit made."
     def __init__(self,
@@ -140,7 +137,7 @@ class FixedAllocationPortfolio:
         self.holdings = holdings
         return self
 
-# %% ../nbs/00_portfolio.ipynb 62
+# %% ../nbs/00_portfolio.ipynb 61
 class Returns:
     def __init__(self,
                  name:    str ,   # Description of the returns - typically used as title
@@ -151,12 +148,12 @@ class Returns:
             for i in range(1,len(holdings)):
                 self.history += holdings[i].history[["deposits","cum_value","fees"]]
 
-# %% ../nbs/00_portfolio.ipynb 64
+# %% ../nbs/00_portfolio.ipynb 63
 @patch
 def to_returns(self:Holding):
     return Returns(self.fund,[self])
 
-# %% ../nbs/00_portfolio.ipynb 69
+# %% ../nbs/00_portfolio.ipynb 68
 @patch
 def to_returns(self:FixedAllocationPortfolio):
     
@@ -166,7 +163,7 @@ def to_returns(self:FixedAllocationPortfolio):
 
     return Returns(name,self.holdings)
 
-# %% ../nbs/00_portfolio.ipynb 74
+# %% ../nbs/00_portfolio.ipynb 73
 @patch
 def profit(self:Returns):
     
@@ -175,5 +172,5 @@ def profit(self:Returns):
     
     return self.history['cum_value'][-1]-sum(self.history['deposits'])-sum(self.history['fees'])
 
-# %% ../nbs/00_portfolio.ipynb 80
+# %% ../nbs/00_portfolio.ipynb 79
 create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
