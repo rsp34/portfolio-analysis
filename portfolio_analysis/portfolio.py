@@ -13,11 +13,11 @@ import pendulum
 # %% ../nbs/00_portfolio.ipynb 7
 import yfinance as yf
 
-# %% ../nbs/00_portfolio.ipynb 13
+# %% ../nbs/00_portfolio.ipynb 15
 import pandas as pd
 from datetime import datetime
 
-# %% ../nbs/00_portfolio.ipynb 14
+# %% ../nbs/00_portfolio.ipynb 16
 to_datetime = lambda date_string: datetime.strptime(date_string,"%d/%m/%Y")
 def create_monthly_deposits(start:str,        # Date of the first montly deposit.
                             end:str,          # Date of the last monthly deposit
@@ -26,10 +26,10 @@ def create_monthly_deposits(start:str,        # Date of the first montly deposit
     deposits = [deposit]*len(dti)
     return pd.Series([deposit]*len(dti), index=dti, name='deposits')
 
-# %% ../nbs/00_portfolio.ipynb 27
+# %% ../nbs/00_portfolio.ipynb 29
 import warnings
 
-# %% ../nbs/00_portfolio.ipynb 28
+# %% ../nbs/00_portfolio.ipynb 30
 class Holding:
     "A holding for fund with data available on yfinance"
     def __init__(self,
@@ -48,12 +48,16 @@ class Holding:
         price_history = yf.Ticker(ticker).history(period='max', # valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
                                                   interval='1d', # valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
                                                   actions=False)
+        if price_history.shape[0] == 0:
+            raise Exception(f"No fund data available for {ticker}") 
         
-        
-        #TODO: This doesn't work if there are no deposits after the fund opened
+        #TODO: Or if there is no overlap before i.e. code assumes deposits can predate fund only.        
         if deposits.index[0] < price_history.index[0]:
-                warn_msg = f"""Deposits predate initial date of {price_history.index[0]} where prices are available for {fund}. First pricing data is back-filled.""" 
-                warnings.warn(warn_msg)
+            warn_msg = f"""Deposits predate initial date of {price_history.index[0]} where prices are available for {fund}. First pricing data is back-filled.""" 
+            warnings.warn(warn_msg)
+        elif deposits.index[0] > price_history.index[-1]:
+            warn_msg = f"""{fund} closed on {price_history.index[-1]} before the first deposit on {deposits.index[0]}.""" 
+            warnings.warn(warn_msg)
         
         # Trim any fund data that predates deposits
         price_history = price_history.iloc[price_history.index >= deposits.index[0]]
@@ -68,8 +72,6 @@ class Holding:
         
         self = self.compute_value()
         
-        # A holding can never have cumulative deposits less than zero.
-        
     def compute_value(self):
         
         self.history['units']        = self.history['deposits']/self.history['Close']
@@ -79,7 +81,7 @@ class Holding:
         
         return self
 
-# %% ../nbs/00_portfolio.ipynb 55
+# %% ../nbs/00_portfolio.ipynb 57
 class FixedAllocationPortfolio:
     "A collection of holdings of funds with data available on yfinance with a fixed allocation of each deposit made."
     def __init__(self,
@@ -123,15 +125,9 @@ class FixedAllocationPortfolio:
         for row in matching_rows:
             
             # Compute the current allocation
-            current_allocation = list()
-            for i in range(len(holdings)):
-                cum_value = holdings[i].history.iloc[row].loc['cum_value'];
-                if cum_value == "nan":
-                    # If the deposits pre-date the fund, we use the deposit value in 
-                    # the allocation computation.
-                    cum_value = holdings[i].history.iloc[row].loc['cum_deposits'];
-                current_allocation.append(cum_value)
-                
+            current_allocation = [holdings[i].history.iloc[row].loc['cum_value']
+                                 for i in range(len(holdings))]
+            
             # Compute target allocations based on asset weightings
             total_value = sum(current_allocation)
             target_allocation = [fraction*total_value for fraction in self.allocation]
@@ -144,7 +140,7 @@ class FixedAllocationPortfolio:
         self.holdings = holdings
         return self
 
-# %% ../nbs/00_portfolio.ipynb 60
+# %% ../nbs/00_portfolio.ipynb 62
 class Returns:
     def __init__(self,
                  name:    str ,   # Description of the returns - typically used as title
@@ -155,12 +151,12 @@ class Returns:
             for i in range(1,len(holdings)):
                 self.history += holdings[i].history[["deposits","cum_value","fees"]]
 
-# %% ../nbs/00_portfolio.ipynb 62
+# %% ../nbs/00_portfolio.ipynb 64
 @patch
 def to_returns(self:Holding):
     return Returns(self.fund,[self])
 
-# %% ../nbs/00_portfolio.ipynb 67
+# %% ../nbs/00_portfolio.ipynb 69
 @patch
 def to_returns(self:FixedAllocationPortfolio):
     
@@ -170,7 +166,7 @@ def to_returns(self:FixedAllocationPortfolio):
 
     return Returns(name,self.holdings)
 
-# %% ../nbs/00_portfolio.ipynb 72
+# %% ../nbs/00_portfolio.ipynb 74
 @patch
 def profit(self:Returns):
     
@@ -179,5 +175,5 @@ def profit(self:Returns):
     
     return self.history['cum_value'][-1]-sum(self.history['deposits'])-sum(self.history['fees'])
 
-# %% ../nbs/00_portfolio.ipynb 78
+# %% ../nbs/00_portfolio.ipynb 80
 create_monthly_rebalance_dates =  lambda start, end: pd.bdate_range(start=to_datetime(start),end=to_datetime(end),freq='BM')
