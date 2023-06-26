@@ -166,9 +166,6 @@ active_growth_rebalanced = active_growth.rebalance(rebalance_dates)
 active_growth_rebalanced.to_returns().profit()
 ```
 
-    /home/ryan/portfolio-analysis-timezone/portfolio_analysis/portfolio.py:58: UserWarning: Deposits predate initial date of 2021-09-01 00:00:00+01:00 where prices are available for LF Ruffer Diversified. First pricing data is back-filled.
-      warnings.warn(warn_msg)
-
     12905.323838299839
 
 ``` python
@@ -202,9 +199,6 @@ active_growth_rebalanced = active_growth.rebalance(rebalance_dates)
 active_growth_rebalanced.to_returns().profit()
 ```
 
-    /home/ryan/portfolio-analysis-timezone/portfolio_analysis/portfolio.py:58: UserWarning: Deposits predate initial date of 2021-09-01 00:00:00+01:00 where prices are available for LF Ruffer Diversified. First pricing data is back-filled.
-      warnings.warn(warn_msg)
-
     91056.05766314178
 
 ### Invest Engine Portfolios
@@ -215,21 +209,22 @@ active_growth_rebalanced.to_returns().profit()
 
 Ultimately, the project can broadly answer the questions I was
 originally interested in, namely, once fees and rebalancing are included
-in porfolio modelling how do different fund recommendations compare. To
-develop this project further I would: \* Look at refactoring the
-notebooks to improve the documentation site that has been created. I
+in portfolio modelling how do different fund recommendations compare? To
+develop this project further, I would:
+* Look at refactoring the notebooks to improve the documentation site that has been created. I
 wanted to test out using `nbdev` on a small software project and,
 unfortunately, I don’t think the resulting documentation site is that
 clear or readable. I think this is how I have structured the notebooks
-rather than the fault of the `nbdev` approach. \* Add more tests to
-increase confidence that the modelling software is working as hoped. \*
-Extend analytics and visualisations for the
+rather than the fault of the `nbdev` approach.
+* Add more tests to increase confidence that the modelling software is working as hoped.
+* Extend analytics and visualisations for the
 [`Returns`](https://rsp34.github.io/portfolio-analysis/portfolio.html#returns)
 class e.g. plots, tables or alternate metrics like the integrated fund
-value. \* Add a functionality for variable allocations, variable fund
+value.
+* Add functionality for variable allocations, variable fund
 portfolio e.g. a `Portfolio` class that could do things like reduce
 exposure to stocks as a portfolio over time or try investing only at
-certain times of the year. \* Architect general method to integrate
-holding data other than `yfinance` as different users may want to pull
+certain times of the year.
+* Architect a general method to integrate holding data other than `yfinance` as different users may want to pull
 data from different sources. I am broadly happy with yfinance as it’s
 free and does what I need!
