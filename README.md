@@ -4,6 +4,7 @@
 
 ``` python
 from portfolio_analysis.portfolio import *
+from datetime import date
 ```
 
 This file will become your README and also the index of your
